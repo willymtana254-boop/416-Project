@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediTECH AI — Health Assistant</title>
+<meta name="theme-color" content="#080c0a">
+<meta name="description" content="Symptom triage assistant for Kenya, in English and Kiswahili.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MediTECH">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div id="netBanner" class="net-banner" role="status" style="display:none;"></div>
+<div id="updateBanner" class="update-banner" role="status" style="display:none;">
+  <span data-i18n="update_msg">A new version is available.</span>
+  <button id="updateBtn" type="button" data-i18n="update_btn">Update</button>
+</div>
+<div class="wrap">
+
+  <header>
+    <div class="logo" id="homeLink" role="link" tabindex="0">
+      <div class="logo-mark">🩺</div>
+      <div class="logo-name">Medi<b>TECH</b> AI</div>
+    </div>
+    <div class="header-right">
+      <button id="emergNav" class="hdr-btn emerg" type="button" data-i18n="acct_emergency">Emergency signs</button>
+      <button id="installBtn" class="hdr-btn" type="button" style="display:none;" data-i18n="install_btn">Install app</button>
+      <div id="accountBar" class="account-bar"></div>
+      <select id="langSelect" class="lang-select" aria-label="Language">
+        <option value="en">English</option>
+        <option value="sw">Kiswahili</option>
+      </select>
+      <div class="status-pill">
+        <div class="pulse"></div>
+        <span data-i18n="pill">Agentic triage</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="flash" class="flash" style="display:none;" role="status"></div>
+
+  <div id="homeView">
+
+  <div class="hero">
+    <p data-i18n="hero">Describe your symptoms — MediTECH AI may ask a few follow-up questions before giving a
+       triage assessment, the way an intake nurse would.</p>
+  </div>
+
+  <div class="chat-log" id="chatLog"></div>
+
+  <div class="card" id="inputCard">
+    <textarea id="textInput" rows="5" data-i18n-placeholder="phFirst"
+      placeholder="e.g. I have a throbbing headache behind my eyes, slight fever, and nausea. It started this morning…"></textarea>
+
+    <div id="firstTurnExtras">
+      <div class="qtags">
+        <button class="qtag" type="button" data-i18n="tag_headache">Headache</button>
+        <button class="qtag" type="button" data-i18n="tag_fever">Fever</button>
+        <button class="qtag" type="button" data-i18n="tag_fatigue">Fatigue</button>
+        <button class="qtag" type="button" data-i18n="tag_nausea">Nausea</button>
+        <button class="qtag" type="button" data-i18n="tag_cough">Cough</button>
+        <button class="qtag" type="button" data-i18n="tag_chest">Chest pain</button>
+        <button class="qtag" type="button" data-i18n="tag_breath">Shortness of breath</button>
+        <button class="qtag" type="button" data-i18n="tag_dizzy">Dizziness</button>
+        <button class="qtag" type="button" data-i18n="tag_rash">Rash</button>
+        <button class="qtag" type="button" data-i18n="tag_joint">Joint pain</button>
+      </div>
+
+      <div class="field">
+        <select id="bodyArea">
+          <option value="" data-i18n="area_none">— Primary affected area (optional) —</option>
+          <option data-i18n="area_head">Head &amp; Neck</option>
+          <option data-i18n="area_chest">Chest &amp; Heart</option>
+          <option data-i18n="area_abdomen">Abdomen &amp; Digestive</option>
+          <option data-i18n="area_back">Back &amp; Spine</option>
+          <option data-i18n="area_arms">Arms &amp; Hands</option>
+          <option data-i18n="area_legs">Legs &amp; Feet</option>
+          <option data-i18n="area_skin">Skin</option>
+          <option data-i18n="area_eyes">Eyes</option>
+          <option data-i18n="area_ent">Ears, Nose &amp; Throat</option>
+          <option data-i18n="area_urinary">Urinary &amp; Reproductive</option>
+          <option data-i18n="area_general">General / Whole Body</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <select id="regionSelect">
+          <option value="" data-i18n="region_none">— Where are you? (optional) —</option>
+          <option value="coast" data-i18n="region_coast">Coast</option>
+          <option value="lake" data-i18n="region_lake">Lake Victoria / Western</option>
+          <option value="rift" data-i18n="region_rift">Rift Valley</option>
+          <option value="central" data-i18n="region_central">Nairobi &amp; Central</option>
+          <option value="north" data-i18n="region_north">Northern &amp; Eastern dry areas</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="file-label" for="imgFile" data-i18n="photo">Photo of a visible symptom (optional)</label>
+        <input type="file" id="imgFile" accept="image/*">
+      </div>
+    </div>
+
+    <button class="go-btn" id="goBtn" type="button">🔬 Start assessment</button>
+  </div>
+
+  <div class="err" id="errBox" style="display:none;"></div>
+
+  <div class="card" id="resultsCard" style="display:none;"></div>
+
+  <div class="card" id="facCard">
+    <div class="fac-head">
+      <div>
+        <div class="fac-title" data-i18n="facTitle">📍 Find the nearest health facility</div>
+        <div class="fac-sub" data-i18n="facSub">Hospitals, clinics and pharmacies near you</div>
+      </div>
+      <button class="loc-btn" id="locBtn" type="button" data-i18n="facBtn">🗺️ Use my location</button>
+    </div>
+    <div class="fac-filters" id="facFilters" style="display:none;"></div>
+    <div class="fac-status" id="facStatus"></div>
+    <div id="facList"></div>
+    <div class="fac-foot" data-i18n="facFoot">Your location is sent to this app's server only to search OpenStreetMap and isn't saved by this app. Map data © OpenStreetMap contributors. Listings may be incomplete or out of date. In an emergency call 999 or 112.</div>
+  </div>
+
+  </div><!-- /homeView -->
+
+  <!-- Sign in / create account -->
+  <div class="card" id="authCard" style="display:none;">
+    <div class="fac-head">
+      <div class="fac-title" id="authTitle"></div>
+      <button class="new-btn" id="authBack" type="button" data-i18n="back">← Back</button>
+    </div>
+    <div class="auth-tabs">
+      <button class="qtag on" type="button" data-auth-tab="signin" data-i18n="auth_tab_signin">Sign in</button>
+      <button class="qtag" type="button" data-auth-tab="register" data-i18n="auth_tab_register">Create account</button>
+    </div>
+    <form id="authForm" novalidate>
+      <div class="field" id="authNameRow">
+        <label class="file-label" for="authName" data-i18n="auth_name">Your name</label>
+        <input type="text" id="authName" autocomplete="name" maxlength="80">
+      </div>
+      <div class="field">
+        <label class="file-label" for="authEmail" data-i18n="auth_email">Email</label>
+        <input type="email" id="authEmail" autocomplete="email" maxlength="254">
+      </div>
+      <div class="field">
+        <label class="file-label" for="authPassword" data-i18n="auth_password">Password</label>
+        <input type="password" id="authPassword" autocomplete="current-password" maxlength="128">
+        <div class="fac-foot" id="authPwHint" data-i18n="auth_password_hint">At least 8 characters.</div>
+      </div>
+      <div class="err" id="authErr" style="display:none;"></div>
+      <button class="go-btn" id="authSubmit" type="submit">Sign in</button>
+    </form>
+    <div class="fac-foot" data-i18n="auth_privacy">An account is optional.</div>
+  </div>
+
+  <!-- Saved history -->
+  <div class="card" id="historyCard" style="display:none;">
+    <div class="fac-head">
+      <div class="fac-title" data-i18n="hist_title">My assessments</div>
+      <button class="new-btn" id="histBack" type="button" data-i18n="back">← Back</button>
+    </div>
+    <div id="histTrend"></div>
+    <div class="fac-status" id="histStatus"></div>
+    <div id="histList"></div>
+    <button class="new-btn" id="histMore" type="button" style="display:none;" data-i18n="hist_more">Load more</button>
+    <div class="danger-zone">
+      <div class="sec" data-i18n="acct_delete_title">Delete my account</div>
+      <div class="fac-foot" data-i18n="acct_delete_help">This permanently deletes your account and every saved assessment.</div>
+      <div class="field">
+        <input type="password" id="delPassword" autocomplete="current-password" maxlength="128" aria-label="Password">
+      </div>
+      <button class="danger-btn" id="delBtn" type="button" data-i18n="acct_delete_btn">Delete account and all data</button>
+    </div>
+  </div>
+
+  <!-- Emergency signs: part of the app shell, so it works with no internet -->
+  <div class="card" id="emergencyCard" style="display:none;">
+    <div class="fac-head">
+      <div class="fac-title" data-i18n="em_title">When to get emergency help now</div>
+      <button class="new-btn" id="emergBack" type="button" data-i18n="back">← Back</button>
+    </div>
+    <div class="emerg-intro" data-i18n="em_intro">If you or someone with you has any of these signs, call 999 or 112, or go to the nearest hospital now.</div>
+    <div class="emerg-call">
+      <a class="call-btn" href="tel:999" data-i18n="em_call_999">Call 999</a>
+      <a class="call-btn" href="tel:112" data-i18n="em_call_112">Call 112</a>
+    </div>
+    <div id="emergList"></div>
+    <div class="fac-foot" data-i18n="em_note">Tell them exactly where you are.</div>
+  </div>
+
+  <!-- Clinician queue (only shown to clinician accounts) -->
+  <div class="card" id="clinCard" style="display:none;">
+    <div class="fac-head">
+      <div>
+        <div class="fac-title" data-i18n="clin_title">Shared assessments</div>
+        <div class="fac-sub" data-i18n="clin_sub">Only assessments that patients chose to share appear here.</div>
+      </div>
+      <button class="new-btn" id="clinBack" type="button" data-i18n="back">← Back</button>
+    </div>
+    <div class="fac-filters" id="clinFilters"></div>
+    <div class="fac-status" id="clinStatus"></div>
+    <div id="clinList"></div>
+    <button class="new-btn" id="clinMore" type="button" style="display:none;" data-i18n="hist_more">Load more</button>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/account.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
+</body>
+</html>
