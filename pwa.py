@@ -63,6 +63,15 @@ MANIFEST = {
         {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
         {"src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
     ],
+    "shortcuts": [
+        {
+            "name": "Emergency signs",
+            "short_name": "Emergency",
+            "description": "When to get emergency help now (works offline)",
+            "url": "/?view=emergency",
+            "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"}],
+        }
+    ],
 }
 
 

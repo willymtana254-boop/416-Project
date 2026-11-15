@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
+<div id="netBanner" class="net-banner" role="status" style="display:none;"></div>
 <div id="updateBanner" class="update-banner" role="status" style="display:none;">
   <span data-i18n="update_msg">A new version is available.</span>
   <button id="updateBtn" type="button" data-i18n="update_btn">Update</button>
@@ -28,6 +29,7 @@
       <div class="logo-name">Medi<b>TECH</b> AI</div>
     </div>
     <div class="header-right">
+      <button id="emergNav" class="hdr-btn emerg" type="button" data-i18n="acct_emergency">Emergency signs</button>
       <button id="installBtn" class="hdr-btn" type="button" style="display:none;" data-i18n="install_btn">Install app</button>
       <div id="accountBar" class="account-bar"></div>
       <select id="langSelect" class="lang-select" aria-label="Language">
@@ -175,6 +177,21 @@
       </div>
       <button class="danger-btn" id="delBtn" type="button" data-i18n="acct_delete_btn">Delete account and all data</button>
     </div>
+  </div>
+
+  <!-- Emergency signs: part of the app shell, so it works with no internet -->
+  <div class="card" id="emergencyCard" style="display:none;">
+    <div class="fac-head">
+      <div class="fac-title" data-i18n="em_title">When to get emergency help now</div>
+      <button class="new-btn" id="emergBack" type="button" data-i18n="back">← Back</button>
+    </div>
+    <div class="emerg-intro" data-i18n="em_intro">If you or someone with you has any of these signs, call 999 or 112, or go to the nearest hospital now.</div>
+    <div class="emerg-call">
+      <a class="call-btn" href="tel:999" data-i18n="em_call_999">Call 999</a>
+      <a class="call-btn" href="tel:112" data-i18n="em_call_112">Call 112</a>
+    </div>
+    <div id="emergList"></div>
+    <div class="fac-foot" data-i18n="em_note">Tell them exactly where you are.</div>
   </div>
 
   <!-- Clinician queue (only shown to clinician accounts) -->

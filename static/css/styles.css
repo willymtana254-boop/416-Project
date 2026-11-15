@@ -184,4 +184,17 @@ input[type="email"]:focus, input[type="password"]:focus { border-color: var(--ac
 .update-banner { position: sticky; top: 0; z-index: 51; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; padding: 10px 16px; font-size: 13px; background: var(--accent-dim); color: var(--accent); border-bottom: 1px solid #5eff8e44; backdrop-filter: blur(6px); }
 .update-banner button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-family: "Syne", sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; }
 .update-banner button:hover { background: var(--accent); color: #05140b; }
+/* ── Phase 5b: offline banner and emergency signs ── */
+.net-banner { position: sticky; top: 0; z-index: 50; padding: 10px 16px; text-align: center; font-size: 13px; line-height: 1.5; background: #2a1d05; color: var(--amber); border-bottom: 1px solid #ffc56b44; }
+.net-banner.ok { background: #0b2314; color: var(--accent); border-bottom-color: #5eff8e44; }
+.hdr-btn.emerg { border-color: #ff6b6b66; color: var(--red); }
+.hdr-btn.emerg:hover { border-color: var(--red); background: #ff6b6b14; color: var(--red); }
+.emerg-intro { font-size: 14px; line-height: 1.7; margin: 14px 0 12px; }
+.emerg-call { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.call-btn { display: inline-block; padding: 12px 22px; border-radius: 10px; background: #c0392b; color: #fff; font-weight: 600; font-size: 15px; text-decoration: none; }
+.call-btn:hover { background: #e04a39; }
+.emerg-item { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 10px; padding: 12px 14px; margin-bottom: 9px; }
+.emerg-item b { display: block; font-size: 14px; margin-bottom: 4px; }
+.emerg-item span { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
 @media (display-mode: standalone) { body { padding-top: env(safe-area-inset-top); } }

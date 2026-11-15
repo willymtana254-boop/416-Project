@@ -129,7 +129,16 @@
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
-    const res = await fetch(url, opts);
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      // The request never reached the server: no connection, or it dropped.
+      const err = new Error("offline");
+      err.code = "offline";
+      err.network = true;
+      throw err;
+    }
     let data = {};
     try { data = await res.json(); } catch { /* non-JSON error page */ }
     if (!res.ok) {
@@ -153,13 +162,16 @@
     if ((name === "history" || name === "clinician") && !me) name = "auth";
     if (name === "clinician" && me && me.role !== "clinician") name = "home";
     view = name;
-    [["homeView", "home"], ["authCard", "auth"], ["historyCard", "history"], ["clinCard", "clinician"]]
+    [["homeView", "home"], ["authCard", "auth"], ["historyCard", "history"], ["clinCard", "clinician"], ["emergencyCard", "emergency"]]
       .forEach(([id, v]) => { $(id).style.display = v === name ? "block" : "none"; });
     if (name === "auth") renderAuth();
     if (name === "history") loadHistory(true);
     if (name === "clinician") loadClinician(true);
     window.scrollTo({ top: 0 });
   }
+
+  MT.showView = showView;
+  MT.flash = flash;
 
   function renderAccountBar() {
     const bar = $("accountBar");
@@ -555,8 +567,13 @@
     if (view === "clinician") renderClinician();
   });
 
+  $("emergNav").addEventListener("click", () => showView("emergency"));
+  $("emergBack").addEventListener("click", goHome);
+
   // ── Start ──
   MT.refresh(); // apply the strings added above to the static markup
+  // The "Emergency signs" home-screen shortcut opens /?view=emergency
+  if (new URLSearchParams(window.location.search).get("view") === "emergency") showView("emergency");
   api("GET", "/api/auth/me")
     .then((d) => { me = d.user; })
     .catch(() => { me = null; })

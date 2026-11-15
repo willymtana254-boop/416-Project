@@ -115,6 +115,10 @@
     String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+  // A fetch() that never reached the server (no connection, DNS failure...) rejects with a TypeError.
+  // Compared by name so it also works across browser frames. account.js marks its own with code "offline".
+  const isNetworkError = (e) => !!e && (e.name === "TypeError" || e.code === "offline" || e.network === true);
+
   // Extension points for account.js (sign-in, saved history, clinician view).
   const hooks = { lang: [], assessment: [], afterRender: [], reset: [] };
 
@@ -201,7 +205,8 @@
     loading = true;
     refreshButton();
 
-    addBubble("user", text || t("sentImage"));
+    const pending = addBubble("user", text || t("sentImage"));
+    let accepted = false; // true once the server has answered, so we only undo a bubble that never got through
 
     const payload = {
       history,
@@ -222,6 +227,7 @@
       if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
 
       history = data.history;
+      accepted = true;
       isFirstTurn = false;
       firstTurnExtras.style.display = "none";
       textInput.value = "";
@@ -240,7 +246,8 @@
         inputCard.style.display = "none";
       }
     } catch (e) {
-      showErr(e.message || t("errGeneric"));
+      if (!accepted && pending) pending.remove(); // the text stays in the box so the patient can simply try again
+      showErr(isNetworkError(e) ? t("errOffline") : e.message || t("errGeneric"));
     } finally {
       loading = false;
       applyI18n();
@@ -260,6 +267,7 @@
     }
     chatLog.appendChild(div);
     div.scrollIntoView({ behavior: "smooth", block: "end" });
+    return div;
   }
 
   function renderAssessment(d, sources) {
@@ -458,8 +466,9 @@
 
   // ── Public surface for account.js ──
   window.MT = {
-    t, esc, fmt,
+    t, esc, fmt, isNetworkError,
     getLang: () => lang,
+    reload: () => window.location.reload(),
     hooks,
     refresh: applyI18n,
     rerender: () => { if (lastAssessment) renderAssessment(lastAssessment.turn, lastAssessment.sources); },
