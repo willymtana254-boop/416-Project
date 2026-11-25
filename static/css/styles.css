@@ -197,4 +197,9 @@ input[type="email"]:focus, input[type="password"]:focus { border-color: var(--ac
 .emerg-item b { display: block; font-size: 14px; margin-bottom: 4px; }
 .emerg-item span { font-size: 13px; color: var(--muted); line-height: 1.6; }
 
+/* ── Phase 5c: saved facility list ── */
+.fac-note { font-size: 12px; line-height: 1.6; color: var(--amber); background: #ffc56b0d; border: 1px solid #ffc56b33; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.link-btn { display: inline-block; margin-top: 10px; padding: 0; border: none; background: none; color: var(--muted); font-family: "Syne", sans-serif; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.link-btn:hover { color: var(--accent); }
+
 @media (display-mode: standalone) { body { padding-top: env(safe-area-inset-top); } }

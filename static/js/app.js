@@ -104,6 +104,7 @@
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable: fine */ } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* storage unavailable: fine */ } },
   };
   let lang = store.get("meditech_lang") === "sw" ? "sw" : "en";
   const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
@@ -119,6 +120,20 @@
   // Compared by name so it also works across browser frames. account.js marks its own with code "offline".
   const isNetworkError = (e) => !!e && (e.name === "TypeError" || e.code === "offline" || e.network === true);
 
+  const FAC_KEY = "meditech_fac_cache";
+  const rad = (d) => (d * Math.PI) / 180;
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const dp = rad(lat2 - lat1), dl = rad(lon2 - lon1);
+    const a = Math.sin(dp / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dl / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.sqrt(a));
+  }
+  function fmtDate(iso) {
+    try {
+      const d = new Date(iso);
+      return isNaN(d) ? String(iso || "") : d.toLocaleString(lang === "sw" ? "sw-KE" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
+    } catch { return String(iso || ""); }
+  }
+
   // Extension points for account.js (sign-in, saved history, clinician view).
   const hooks = { lang: [], assessment: [], afterRender: [], reset: [] };
 
@@ -128,7 +143,7 @@
   let isFirstTurn = true;
   let loading = false;
   let lastAssessment = null; // {turn, sources}, kept so a language switch can re-render it
-  const fac = { items: [], radiusKm: 0, filter: "all", status: "idle", errorMsg: "" };
+  const fac = { items: [], radiusKm: 0, filter: "all", status: "idle", errorMsg: "", cachedAt: null, cachedNow: false };
 
   // ── DOM refs ──
   const $ = (id) => document.getElementById(id);
@@ -137,7 +152,7 @@
   const goBtn = $("goBtn"), inputCard = $("inputCard"), errBox = $("errBox"), resultsCard = $("resultsCard");
   const langSelect = $("langSelect");
   const locBtn = $("locBtn"), facFilters = $("facFilters"), facStatus = $("facStatus"), facList = $("facList");
-  const facCard = $("facCard");
+  const facCard = $("facCard"), facNote = $("facNote"), facForget = $("facForget");
 
   // ── Language ──
   function applyI18n() {
@@ -364,6 +379,10 @@
 
   // ── Nearest facilities ──
   locBtn.addEventListener("click", findFacilities);
+  facForget.addEventListener("click", () => {
+    forgetFacilities();
+    if (window.MT && MT.flash) MT.flash(t("fac_forgotten"));
+  });
 
   facFilters.addEventListener("click", (e) => {
     const b = e.target.closest("[data-filter]");
@@ -371,6 +390,41 @@
     fac.filter = b.dataset.filter;
     renderFacilities();
   });
+
+  // The last successful search is kept on this device (facility names, places and phone numbers: no
+  // account data, and not the patient's own position) so the list still opens when the connection or
+  // the map service is down. GPS works offline, so distances are recalculated from where the patient is now.
+  function saveFacCache(data) {
+    store.set(FAC_KEY, JSON.stringify({
+      savedAt: new Date().toISOString(), radiusKm: data.radiusKm, items: (data.facilities || []).slice(0, 40),
+    }));
+  }
+  function loadFacCache() {
+    try {
+      const c = JSON.parse(store.get(FAC_KEY));
+      return c && Array.isArray(c.items) && c.items.length ? c : null;
+    } catch { return null; }
+  }
+  function useFacCache(cache, pos) {
+    let items = cache.items;
+    if (pos) {
+      items = items
+        .map((f) => (typeof f.lat === "number" && typeof f.lon === "number"
+          ? { ...f, distanceKm: Math.round(haversineKm(pos.coords.latitude, pos.coords.longitude, f.lat, f.lon) * 10) / 10 }
+          : f))
+        .sort((a, b) => a.distanceKm - b.distanceKm);
+    }
+    fac.items = items;
+    fac.radiusKm = cache.radiusKm;
+    fac.cachedAt = cache.savedAt;
+    fac.cachedNow = !!pos;
+    fac.status = "done";
+  }
+  function forgetFacilities() {
+    store.del(FAC_KEY);
+    if (fac.cachedAt) { fac.items = []; fac.status = "idle"; fac.cachedAt = null; }
+    renderFacilities();
+  }
 
   function findFacilities() {
     if (!navigator.geolocation) {
@@ -380,6 +434,7 @@
       return;
     }
     fac.status = "loading";
+    fac.cachedAt = null;
     renderFacilities();
 
     navigator.geolocation.getCurrentPosition(
@@ -391,18 +446,30 @@
             body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || t("facError"));
+          if (!res.ok) { const err = new Error(data.error || t("facError")); err.status = res.status; throw err; }
           fac.items = data.facilities || [];
           fac.radiusKm = data.radiusKm;
+          fac.cachedAt = null;
           fac.status = "done";
+          if (fac.items.length) saveFacCache(data); // never overwrite a good saved list with an empty result
         } catch (e) {
-          fac.status = "error";
-          fac.errorMsg = e.message || t("facError");
+          // No connection, or the map service is failing (a 5xx): the saved list is better than an error.
+          const unavailable = isNetworkError(e) || (e && e.status >= 500);
+          const cache = unavailable ? loadFacCache() : null;
+          if (cache) {
+            useFacCache(cache, pos);
+          } else {
+            fac.status = "error";
+            fac.errorMsg = isNetworkError(e) ? t("facNoCache") : e.message || t("facError");
+          }
         }
         renderFacilities();
       },
       () => {
-        fac.status = "denied";
+        // No location. If we are also offline, the saved list (old distances) is better than nothing.
+        const cache = navigator.onLine === false ? loadFacCache() : null;
+        if (cache) useFacCache(cache, null);
+        else fac.status = "denied";
         renderFacilities();
       },
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
@@ -416,6 +483,13 @@
   function renderFacilities() {
     locBtn.disabled = fac.status === "loading";
     locBtn.textContent = fac.status === "done" ? t("facRefresh") : t("facBtn");
+
+    facNote.style.display = "none";
+    if (fac.status === "done" && fac.cachedAt) {
+      facNote.textContent = fmt(t(fac.cachedNow ? "facCachedNow" : "facCachedOld"), { date: fmtDate(fac.cachedAt) });
+      facNote.style.display = "block";
+    }
+    facForget.style.display = loadFacCache() ? "" : "none";
 
     facStatus.className = "fac-status";
     if (fac.status === "loading") facStatus.textContent = t("facLoading");
@@ -466,7 +540,7 @@
 
   // ── Public surface for account.js ──
   window.MT = {
-    t, esc, fmt, isNetworkError,
+    t, esc, fmt, store, isNetworkError, FAC_KEY, fmtDate, forgetFacilities,
     getLang: () => lang,
     reload: () => window.location.reload(),
     hooks,

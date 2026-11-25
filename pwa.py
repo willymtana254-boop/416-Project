@@ -54,8 +54,8 @@ MANIFEST = {
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#080c0a",
-    "theme_color": "#080c0a",
+    "background_color": "#f3f7f7",
+    "theme_color": "#0b6b6b",
     "lang": "en",
     "categories": ["health", "medical"],
     "icons": [

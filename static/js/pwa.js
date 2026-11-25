@@ -42,6 +42,11 @@
       em9_d: "Pain that keeps getting worse, a hard or rigid belly, pain that is much worse with movement or coughing, or pain with repeated vomiting.",
       em10_t: "Pregnancy",
       em10_d: "Heavy bleeding, severe headache with blurred vision, fits, severe belly pain, fever, or the baby moving much less than usual.",
+      facCachedNow: "Showing the list saved on {date} because the live search is not available. Distances are measured from your current position. It may be out of date.",
+      facCachedOld: "Showing the list saved on {date} because the live search is not available. Distances were measured from where you searched, and the list may be out of date.",
+      facNoCache: "You are offline and no facility list is saved on this device yet. Search once while online to save one.",
+      fac_forget: "Remove the saved list from this device",
+      fac_forgotten: "The saved facility list was removed from this device.",
     },
     sw: {
       update_msg: "Toleo jipya linapatikana.", update_btn: "Sasisha",
@@ -76,6 +81,11 @@
       em9_d: "Maumivu yanayozidi kuongezeka, tumbo gumu au lililokaza, maumivu yanayozidi sana unaposogea au kukohoa, au maumivu pamoja na kutapika mara kwa mara.",
       em10_t: "Ujauzito",
       em10_d: "Kutoka damu nyingi, maumivu makali ya kichwa pamoja na kutoona vizuri, kifafa, maumivu makali ya tumbo, homa, au mtoto kucheza kidogo sana kuliko kawaida.",
+      facCachedNow: "Inaonyesha orodha iliyohifadhiwa tarehe {date} kwa sababu utafutaji wa moja kwa moja haupatikani. Umbali umepimwa kutoka mahali ulipo sasa. Inaweza kuwa imepitwa na wakati.",
+      facCachedOld: "Inaonyesha orodha iliyohifadhiwa tarehe {date} kwa sababu utafutaji wa moja kwa moja haupatikani. Umbali ulipimwa kutoka ulipotafutia, na orodha inaweza kuwa imepitwa na wakati.",
+      facNoCache: "Huna mtandao na hakuna orodha ya vituo iliyohifadhiwa kwenye kifaa hiki bado. Tafuta mara moja ukiwa na mtandao ili kuhifadhi moja.",
+      fac_forget: "Ondoa orodha iliyohifadhiwa kwenye kifaa hiki",
+      fac_forgotten: "Orodha ya vituo iliyohifadhiwa imeondolewa kwenye kifaa hiki.",
     },
   };
   // </i18n>
