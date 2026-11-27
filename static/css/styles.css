@@ -202,4 +202,10 @@ input[type="email"]:focus, input[type="password"]:focus { border-color: var(--ac
 .link-btn { display: inline-block; margin-top: 10px; padding: 0; border: none; background: none; color: var(--muted); font-family: "Syne", sans-serif; font-size: 12px; text-decoration: underline; cursor: pointer; }
 .link-btn:hover { color: var(--accent); }
 
+/* ── Phase 5d: offline history (opt-in) ── */
+.hdr-offline { font-size: 11px; color: var(--amber); }
+.offline-opt { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; margin: 12px 0; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.offline-opt input { margin-top: 3px; accent-color: #3de876; }
+.offline-opt .fac-foot { display: block; margin-top: 4px; }
+
 @media (display-mode: standalone) { body { padding-top: env(safe-area-inset-top); } }

@@ -102,8 +102,8 @@
   let authMode = "signin";
   let saveInfo = null;       // save state of the assessment currently on screen
   let flashTimer = null;
-  const hist = { items: [], total: 0, trend: null, open: new Set(), details: {}, loading: false, error: false };
-  const clin = { status: "new", items: [], total: 0, open: null, detail: null, loading: false, error: false };
+  const hist = { items: [], total: 0, trend: null, open: new Set(), details: {}, loading: false, error: false, offline: false, needsOnline: false, savedAt: null };
+  const clin = { status: "new", items: [], total: 0, open: null, detail: null, loading: false, error: false, offline: false };
 
   const sevOf = (s) => (["low", "medium", "high"].includes(s) ? s : "medium");
 
@@ -173,6 +173,8 @@
   MT.showView = showView;
   MT.flash = flash;
 
+  async function wipeAll() { if (MT.offline) await MT.offline.wipeAll(); }
+
   function renderAccountBar() {
     const bar = $("accountBar");
     if (!me) {
@@ -181,8 +183,9 @@
     }
     bar.innerHTML =
       `<span class="hdr-name">${esc(me.name)}</span>` +
+      (me.offlineSession ? `<span class="hdr-offline">${esc(t("off_offline_user"))}</span>` : "") +
       `<button class="hdr-btn" type="button" data-nav="history">${esc(t("acct_history"))}</button>` +
-      (me.role === "clinician"
+      (me.role === "clinician" && !me.offlineSession
         ? `<button class="hdr-btn" type="button" data-nav="clinician">${esc(t("acct_clinician"))}</button>` : "") +
       `<button class="hdr-btn" type="button" data-nav="signout">${esc(t("acct_signout"))}</button>`;
   }
@@ -199,7 +202,13 @@
   ["authBack", "histBack", "clinBack"].forEach((id) => $(id).addEventListener("click", goHome));
 
   async function signOut() {
-    try { await api("POST", "/api/auth/logout", {}); } catch { /* signing out locally anyway */ }
+    try {
+      await api("POST", "/api/auth/logout", {});
+    } catch (err) {
+      if (err.network) { flash(t("off_signout_needs_online")); return; } // still signed in on the server: do not pretend otherwise
+      /* any other error: sign out on this device anyway */
+    }
+    await wipeAll();
     forgetUser();
     showView("home");
   }
@@ -207,7 +216,7 @@
   function forgetUser() {
     me = null;
     saveInfo = null;
-    hist.items = []; hist.details = {}; hist.open = new Set(); hist.total = 0; hist.trend = null;
+    hist.items = []; hist.details = {}; hist.open = new Set(); hist.total = 0; hist.trend = null; hist.offline = false; hist.needsOnline = false;
     clin.items = []; clin.open = null; clin.detail = null; clin.total = 0;
     renderAccountBar();
     MT.rerender();
@@ -243,6 +252,7 @@
     try {
       const data = await api("POST", reg ? "/api/auth/register" : "/api/auth/login", body);
       me = data.user;
+      if (MT.offline) MT.offline.rememberUser(me); // so the app can reopen offline as this user
       $("authPassword").value = "";
       renderAccountBar();
       await claimPending();
@@ -357,20 +367,73 @@
   }
 
   // ── History ──
+  // Optional, per device: keep a copy of the signed-in patient's history so it can be read offline.
+  const optedIn = () => !!(MT.offline && me && MT.offline.enabledFor(me.id));
+  const canSaveCopy = () => optedIn() && !me.offlineSession && !hist.offline;
+  let prefetchRun = 0;
+
+  async function saveOfflineCopy() {
+    if (!canSaveCopy()) return;
+    try { await MT.offline.save(me.id, { items: hist.items, total: hist.total, trend: hist.trend, details: hist.details }); }
+    catch { /* storage full or unavailable: the copy is a convenience */ }
+  }
+
+  async function prefetchDetails() {
+    if (!canSaveCopy()) return;
+    const run = ++prefetchRun;
+    for (const it of hist.items.slice(0, 20)) {
+      if (run !== prefetchRun || !canSaveCopy()) return; // superseded, or the option was turned off meanwhile
+      if (hist.details[it.id]) continue;
+      try { hist.details[it.id] = await api("GET", `/api/history/${it.id}`); }
+      catch (err) { if (err.network) break; }
+    }
+    if (run === prefetchRun) await saveOfflineCopy();
+  }
+
+  async function loadHistoryOffline() {
+    const rec = optedIn() ? await MT.offline.load(me.id) : null;
+    if (!rec) { hist.needsOnline = true; return; }
+    hist.items = rec.items || [];
+    hist.total = hist.items.length;
+    hist.trend = rec.trend || null;
+    hist.details = rec.details || {};
+    hist.offline = true;
+    hist.savedAt = rec.savedAt;
+  }
+
   async function loadHistory(reset) {
     if (!me) return;
-    if (reset) { hist.items = []; hist.open = new Set(); hist.details = {}; hist.total = 0; hist.trend = null; }
-    hist.loading = true; hist.error = false;
+    if (reset) { hist.items = []; hist.open = new Set(); hist.details = {}; hist.total = 0; hist.trend = null; hist.offline = false; hist.savedAt = null; }
+    hist.loading = true; hist.error = false; hist.needsOnline = false;
     renderHistory();
     try {
       const d = await api("GET", `/api/history?limit=20&offset=${hist.items.length}`);
       hist.items = hist.items.concat(d.items);
       hist.total = d.total;
       hist.trend = d.trend;
-    } catch { hist.error = true; }
+      hist.offline = false;
+      await saveOfflineCopy();   // does nothing unless the patient turned the option on
+      prefetchDetails();
+    } catch (err) {
+      if (err.network) await loadHistoryOffline(); else hist.error = true;
+    }
     hist.loading = false;
     renderHistory();
   }
+
+  $("offlineToggle").addEventListener("change", async (e) => {
+    if (!MT.offline || !me) return;
+    if (e.target.checked) {
+      if (me.offlineSession) { e.target.checked = false; flash(t("err_offline")); return; } // needs the server to fetch the history
+      MT.offline.enable(me.id);
+      await saveOfflineCopy();
+      prefetchDetails();
+    } else {
+      prefetchRun++;               // stop any copy still being made
+      await MT.offline.disable();  // deletes what is stored on this device
+    }
+    renderHistory();
+  });
 
   function histItemHtml(it) {
     const sev = sevOf(it.severity);
@@ -398,11 +461,17 @@
 
   function renderHistory() {
     $("histStatus").textContent = hist.loading ? t("hist_loading")
+      : hist.needsOnline ? t("off_history_needs_online")
       : hist.error ? t("hist_failed")
       : !hist.items.length ? t("hist_empty") : "";
+    const banner = $("histOffline");
+    banner.style.display = hist.offline ? "block" : "none";
+    if (hist.offline) banner.textContent = fmt(t("off_banner"), { date: MT.fmtDate(hist.savedAt) });
+    $("offlineOpt").style.display = MT.offline && MT.offline.supported() && me ? "flex" : "none";
+    $("offlineToggle").checked = optedIn();
     $("histTrend").innerHTML = hist.trend && hist.trend.notice ? trendHtml(hist.trend) : "";
     $("histList").innerHTML = hist.items.map(histItemHtml).join("");
-    $("histMore").style.display = hist.items.length < hist.total ? "flex" : "none";
+    $("histMore").style.display = !hist.offline && hist.items.length < hist.total ? "flex" : "none";
   }
 
   $("histMore").addEventListener("click", () => loadHistory(false));
@@ -440,6 +509,7 @@
         }
       } catch (err) { flash(errMsg(err)); }
       renderHistory();
+      saveOfflineCopy();   // keep the stored copy in step with shares and deletions made online
       return;
     }
     const row = e.target.closest("[data-toggle]");
@@ -457,6 +527,7 @@
     try {
       await api("POST", "/api/account/delete", { password: pw });
       $("delPassword").value = "";
+      await wipeAll();
       forgetUser();
       showView("home");
       flash(t("acct_deleted"));
@@ -473,7 +544,7 @@
       const d = await api("GET", `/api/clinician/queue?status=${encodeURIComponent(clin.status)}&limit=30&offset=${clin.items.length}`);
       clin.items = clin.items.concat(d.items);
       clin.total = d.total;
-    } catch { clin.error = true; }
+    } catch (err) { clin.error = true; clin.offline = !!(err && err.network); }
     clin.loading = false;
     renderClinician();
   }
@@ -507,7 +578,7 @@
       .map((k) => `<button type="button" class="qtag${clin.status === k ? " on" : ""}" data-clin-filter="${k}">${esc(t("clin_filter_" + k))}</button>`)
       .join("");
     $("clinStatus").textContent = clin.loading ? t("hist_loading")
-      : clin.error ? t("clin_failed")
+      : clin.error ? t(clin.offline ? "err_offline" : "clin_failed")
       : !clin.items.length ? t("clin_empty") : "";
     $("clinList").innerHTML = clin.items.map(clinItemHtml).join("");
     $("clinMore").style.display = clin.items.length < clin.total ? "flex" : "none";
@@ -575,7 +646,17 @@
   // The "Emergency signs" home-screen shortcut opens /?view=emergency
   if (new URLSearchParams(window.location.search).get("view") === "emergency") showView("emergency");
   api("GET", "/api/auth/me")
-    .then((d) => { me = d.user; })
-    .catch(() => { me = null; })
+    .then((d) => {
+      me = d.user;
+      if (MT.offline) {
+        if (me) MT.offline.rememberUser(me);
+        else MT.offline.wipeAccountData(); // the server says nobody is signed in: drop any account data kept here
+      }
+    })
+    .catch((err) => {
+      // Offline: carry on read-only as the last signed-in user, or as a guest.
+      const last = err.network && MT.offline ? MT.offline.lastUser() : null;
+      me = last ? { ...last, offlineSession: true } : null;
+    })
     .finally(() => { renderAccountBar(); });
 })();

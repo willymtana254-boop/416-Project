@@ -47,6 +47,12 @@
       facNoCache: "You are offline and no facility list is saved on this device yet. Search once while online to save one.",
       fac_forget: "Remove the saved list from this device",
       fac_forgotten: "The saved facility list was removed from this device.",
+      off_toggle: "Keep a copy of my history on this device for offline reading",
+      off_help: "Anyone who can open this app on this device while you are signed in could read the copy. It is removed when you turn this off, sign out or delete your account.",
+      off_banner: "You are reading the copy saved on {date}. It may be out of date.",
+      off_history_needs_online: "Your history is not saved on this device. Connect to the internet to see it.",
+      off_signout_needs_online: "You need to be online to sign out. To remove the offline copy now, turn off the option to keep a copy of your history on this device.",
+      off_offline_user: "(offline)",
     },
     sw: {
       update_msg: "Toleo jipya linapatikana.", update_btn: "Sasisha",
@@ -86,6 +92,12 @@
       facNoCache: "Huna mtandao na hakuna orodha ya vituo iliyohifadhiwa kwenye kifaa hiki bado. Tafuta mara moja ukiwa na mtandao ili kuhifadhi moja.",
       fac_forget: "Ondoa orodha iliyohifadhiwa kwenye kifaa hiki",
       fac_forgotten: "Orodha ya vituo iliyohifadhiwa imeondolewa kwenye kifaa hiki.",
+      off_toggle: "Hifadhi nakala ya historia yangu kwenye kifaa hiki ili niisome bila mtandao",
+      off_help: "Mtu yeyote anayeweza kufungua programu hii kwenye kifaa hiki ukiwa umeingia anaweza kusoma nakala hiyo. Huondolewa ukizima hii, ukitoka au ukifuta akaunti yako.",
+      off_banner: "Unasoma nakala iliyohifadhiwa tarehe {date}. Inaweza kuwa imepitwa na wakati.",
+      off_history_needs_online: "Historia yako haijahifadhiwa kwenye kifaa hiki. Unganisha intaneti ili kuiona.",
+      off_signout_needs_online: "Unahitaji mtandao ili kutoka. Ili kuondoa nakala ya nje ya mtandao sasa, zima chaguo la kuhifadhi nakala ya historia yako kwenye kifaa hiki.",
+      off_offline_user: "(bila mtandao)",
     },
   };
   // </i18n>
@@ -101,6 +113,78 @@
     clearTimeout(flashTimer);
     flashTimer = setTimeout(() => { box.style.display = "none"; }, 6000);
   }
+
+  // ───────────── On-device store for the opt-in offline history ─────────────
+  // Nothing here is used unless the patient ticks "Keep a copy of my history on this device". The copy lives
+  // in this browser's IndexedDB, is removed when the option is turned off, when the patient signs out or
+  // deletes the account, and whenever the server says nobody is signed in. Only the signed-in user's own
+  // assessments are stored: never a password, and not the email address.
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* unavailable */ } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* unavailable */ } },
+  };
+  const OPT_KEY = "meditech_offline_user";    // which user turned the option on, on this device
+  const LAST_USER_KEY = "meditech_last_user"; // {id, name, role} so the app can open offline
+  const DB_NAME = "meditech-offline", STORE = "history";
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("IndexedDB is not available")); return; }
+      let req;
+      try { req = window.indexedDB.open(DB_NAME, 1); } catch (e) { reject(e); return; }
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "userId" });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function run(mode, fn) {
+    const db = await openDb();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, mode);
+        const request = fn(tx.objectStore(STORE));
+        tx.oncomplete = () => resolve(request ? request.result : undefined);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  MT.offline = {
+    supported: () => !!window.indexedDB,
+    enabledFor: (userId) => ls.get(OPT_KEY) === String(userId),
+    enable: (userId) => ls.set(OPT_KEY, String(userId)),
+    async disable() {
+      ls.del(OPT_KEY);
+      try { await run("readwrite", (s) => s.clear()); } catch { /* nothing stored */ }
+    },
+    async save(userId, data) {
+      await run("readwrite", (s) => s.put({ userId, savedAt: new Date().toISOString(), ...data }));
+    },
+    async load(userId) {
+      try { return (await run("readonly", (s) => s.get(userId))) || null; } catch { return null; }
+    },
+    rememberUser(u) { ls.set(LAST_USER_KEY, JSON.stringify({ id: u.id, name: u.name, role: u.role })); },
+    lastUser() {
+      try { const u = JSON.parse(ls.get(LAST_USER_KEY)); return u && u.id ? u : null; } catch { return null; }
+    },
+    // The server says nobody is signed in: remove everything tied to an account.
+    async wipeAccountData() {
+      ls.del(OPT_KEY); ls.del(LAST_USER_KEY);
+      try { await run("readwrite", (s) => s.clear()); } catch { /* nothing stored */ }
+    },
+    // Explicit sign-out or account deletion: also forget the saved facility list.
+    async wipeAll() {
+      if (MT.forgetFacilities) MT.forgetFacilities(); else ls.del(MT.FAC_KEY);
+      await this.wipeAccountData();
+    },
+  };
 
   // ───────────── Online / offline banner ─────────────
   // navigator.onLine is only a hint (it can be wrong), so nothing is blocked because of it: a send is
