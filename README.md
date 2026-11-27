@@ -1,9 +1,6 @@
 # MediTECH AI
 
-A bilingual (English and Kiswahili) symptom-triage assistant for Kenya. The patient describes their
-symptoms; the app asks up to three follow-up questions, grounds its answer in 22 reference notes, and
-returns a severity level (low, medium, high), advice, and nearby facilities. It gives guidance, not a
-diagnosis, and never names medicines or doses. It works as an installable, partly offline web app.
+A bilingual (English and Kiswahili) symptom-triage assistant for Kenya. The patient describes their symptoms; the app asks up to three follow-up questions, grounds its answer in 22 reference notes, and returns a severity level (low, medium, high), advice, and nearby facilities. It gives guidance, not a diagnosis, and never names medicines or doses. It works as an installable, partly offline web app.
 
 ## Run it
 
@@ -16,6 +13,27 @@ python manage.py index          # one time: builds the reference-note index
 python manage.py check          # optional: confirms everything is in place
 python app.py                   # open http://localhost:5000
 ```
+
+## Repository layout
+
+The project at the repository root is the canonical, current application. Run commands from this directory; do not run the duplicate project copies in the historical folders.
+
+```text
+416-Project/
+├── app.py                 Flask app and HTTP routes
+├── ai.py                  AI prompts, retrieval, and Gemini integration
+├── accounts.py            Accounts, authentication, and saved assessments
+├── facilities.py          Nearby health-facility lookup
+├── knowledge_base.py      Reference notes
+├── manage.py              Project maintenance commands
+├── evaluation/            Evaluation harness and test cases
+├── static/                CSS, JavaScript, fonts, and icons
+├── templates/             HTML page and service-worker template
+├── data/                  Runtime index and database files
+└── requirements.txt       Python dependencies
+```
+
+`meditech-ai-py/`, `phase5b/`, `t/`, and `jsd/` are historical/auxiliary folders and are not part of the root app's runtime. They are retained for now; review them before deleting, since this repository's current GitHub editing tools cannot remove files or directories.
 
 ## The code in five files
 
@@ -45,10 +63,8 @@ Around them:
 2. `app.py` counts earlier follow-up questions. After three, it forces a final assessment.
 3. `ai.py` section 3 embeds what the patient said and returns the 4 most similar reference notes.
 4. `ai.py` section 1 adds the language and regional instructions for this turn.
-5. `ai.py` section 4 sends everything to Gemini and forces one of two tool calls: `ask_follow_up` or
-   `provide_assessment`, so the answer is always structured.
-6. For a final assessment, `app.py` saves it: signed-in users to the database, guests get a two-hour
-   signed token so they can save it after signing in.
+5. `ai.py` section 4 sends everything to Gemini and forces one of two tool calls: `ask_follow_up` or `provide_assessment`, so the answer is always structured.
+6. For a final assessment, `app.py` saves it: signed-in users to the database, guests get a two-hour signed token so they can save it after signing in.
 7. The browser shows the next question, or the result with severity, advice, sources and facilities.
 
 ## Safety rules
@@ -58,8 +74,7 @@ Around them:
 3. At most three follow-up questions, enforced on the server.
 4. High severity shows 999 and 112 and a facility search.
 5. If retrieval fails, the patient still gets an answer (no extra context).
-6. Patients see only their own records. Clinicians see only records a patient chose to share, never the
-   email address, and every view is written to an audit log (`accounts.py` section 4).
+6. Patients see only their own records. Clinicians see only records a patient chose to share, never the email address, and every view is written to an audit log (`accounts.py` section 4).
 
 ## Where to look when asked...
 
