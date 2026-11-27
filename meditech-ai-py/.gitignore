@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+data/kb_embeddings.json
+data/kb_cache.json
+data/meditech.db
+data/meditech.db-journal
+data/.secret_key
