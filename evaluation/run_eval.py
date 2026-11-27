@@ -1,20 +1,3 @@
-"""Runs the evaluation cases through the real MediTECH AI pipeline.
-
-    python -m evaluation.run_eval --name baseline
-    python -m evaluation.run_eval --name no-rag --no-rag
-    python -m evaluation.report --name baseline --compare no-rag
-    python -m evaluation.run_eval --mock            (dry run, no API key, no cost)
-
-Each case is played through POST /api/chat exactly as the browser does it:
-the scripted patient sends the opening message, answers each follow-up, and
-the run ends when the assistant gives its assessment. Retrieval, the prompt
-rules, language and region handling are all the real ones.
-
-Results are appended to results/<name>.jsonl after EVERY run, so an
-interrupted run (network drop, rate limit, Ctrl+C) loses nothing: run the
-same command again and finished cases are skipped. Runs that errored are
-retried."""
-
 import argparse
 import json
 import os

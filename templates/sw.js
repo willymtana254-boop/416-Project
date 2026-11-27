@@ -1,20 +1,3 @@
-/* MediTECH AI service worker. Served by pwa.py at /sw.js, which fills in the
- * version and the list of files to cache. Do not edit the two placeholders.
- *
- * What it does
- *   - Caches the app shell (page, scripts, styles, fonts, icons) when it
- *     installs, so the app opens with no connection.
- *   - Serves the shell from the cache first. Every file in the cache belongs
- *     to one version, so the page and its scripts always match.
- *   - Waits for the page to ask before replacing the running version, so an
- *     update never swaps the app under a patient in the middle of an assessment.
- *
- * What it never does
- *   - It never touches /api/. Assessments, sign-in, saved history and
- *     facility searches always go straight to the network and are never stored
- *     by this worker.
- *   - It ignores other websites and every request that is not a plain GET.
- */
 const VERSION = "__VERSION__";
 const PREFIX = "meditech-shell-";
 const CACHE = PREFIX + VERSION;

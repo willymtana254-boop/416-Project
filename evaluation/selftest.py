@@ -1,15 +1,3 @@
-"""Checks that the evaluation harness itself is correct, using no API key and
-no network:
-
-    python -m evaluation.selftest
-
-It tests the scoring maths against hand-worked examples, the safety-check
-patterns against sentences that must and must not be flagged, the scripted
-patient, the report numbers on synthetic data, and the full runner (including
-resume, retries and the guard against mixing settings) with the keyword
-stand-in model. If this passes, a surprising number in a REAL run is about
-the model, not about the harness."""
-
 import copy
 import json
 import sys

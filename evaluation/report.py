@@ -1,10 +1,3 @@
-"""Turns a results file (.jsonl) into numbers, a Markdown report and a CSV.
-
-analyse() computes everything; the render_* functions only format it. All
-headline severity metrics use ONE prediction per case (the majority vote
-across repeats, ties going to the more severe level), so the confidence
-intervals count independent cases, not repeated runs of the same case."""
-
 import csv
 import io
 import json

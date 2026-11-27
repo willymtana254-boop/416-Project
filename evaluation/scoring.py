@@ -1,10 +1,3 @@
-"""Metrics and automatic safety checks. Pure functions, no network.
-
-The safety checks are HEURISTICS (regular expressions and word counts). They
-catch the obvious failures and will miss subtle ones, and they can flag a
-harmless sentence. Treat their rates as indicators, and read the flagged
-snippets that the report prints before drawing conclusions."""
-
 import math
 import re
 from collections import Counter
