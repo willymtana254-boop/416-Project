@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MediTECH AI — Health Assistant</title>
 <meta name="theme-color" content="#080c0a">
-<meta name="description" content="Symptom triage assistant for Kenya, in English and Kiswahili.">
+<meta name="description" content="Symptom triage assistant for Kenya, in English, Kiswahili, Giriama and Kalenjin.">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
@@ -35,6 +35,8 @@
       <select id="langSelect" class="lang-select" aria-label="Language">
         <option value="en">English</option>
         <option value="sw">Kiswahili</option>
+        <option value="nyf">Giriama (beta)</option>
+        <option value="kln">Kalenjin (beta)</option>
       </select>
       <div class="status-pill">
         <div class="pulse"></div>
@@ -42,6 +44,8 @@
       </div>
     </div>
   </header>
+
+  <div id="betaNote" class="fac-note" style="display:none;" role="note"></div>
 
   <div id="flash" class="flash" style="display:none;" role="status"></div>
 

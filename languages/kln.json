@@ -1,0 +1,40 @@
+{
+  "_note": "Fill each value with the correct word or phrase, written with a native speaker. Leave a value empty if unsure; empty entries are ignored. Add up to 20 examples of a patient message and a good reply.",
+  "language": "Kalenjin",
+  "glossary": {
+    "headache": "",
+    "fever": "",
+    "fatigue": "",
+    "nausea": "",
+    "cough": "",
+    "chest pain": "",
+    "shortness of breath": "",
+    "dizziness": "",
+    "rash": "",
+    "joint pain": "",
+    "vomiting": "",
+    "diarrhoea": "",
+    "stomach pain": "",
+    "pain": "",
+    "blood": "",
+    "child": "",
+    "baby": "",
+    "pregnant": "",
+    "hospital": "",
+    "clinic": "",
+    "emergency": "",
+    "how long?": "",
+    "how severe?": "",
+    "since yesterday": "",
+    "stiff neck": "",
+    "confusion": "",
+    "weakness on one side of the body": "",
+    "difficulty breathing": ""
+  },
+  "examples": [
+    {
+      "patient": "",
+      "assistant": ""
+    }
+  ]
+}

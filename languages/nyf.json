@@ -1,0 +1,40 @@
+{
+  "_note": "Fill each value with the correct word or phrase, written with a native speaker. Leave a value empty if unsure; empty entries are ignored. Add up to 20 examples of a patient message and a good reply.",
+  "language": "Giriama",
+  "glossary": {
+    "headache": "kichwa kuluma",
+    "fever": "",
+    "fatigue": "kuchoka",
+    "nausea": "",
+    "cough": "kukolola",
+    "chest pain": "kifua kuluma",
+    "shortness of breath": "",
+    "dizziness": "kichwa kuluma",
+    "rash": "ududusi",
+    "joint pain": "",
+    "vomiting": "",
+    "diarrhoea": "",
+    "stomach pain": "",
+    "pain": "",
+    "blood": "",
+    "child": "",
+    "baby": "",
+    "pregnant": "",
+    "hospital": "",
+    "clinic": "",
+    "emergency": "",
+    "how long?": "",
+    "how severe?": "",
+    "since yesterday": "",
+    "stiff neck": "",
+    "confusion": "",
+    "weakness on one side of the body": "",
+    "difficulty breathing": ""
+  },
+  "examples": [
+    {
+      "patient": "",
+      "assistant": ""
+    }
+  ]
+}

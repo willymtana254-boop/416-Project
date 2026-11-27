@@ -29,7 +29,7 @@ import requests
 # the report: it should be checked against Ministry of Health guidance
 # before you cite it as clinical fact.
 
-LANGUAGES = {"en": "English", "sw": "Kiswahili"}
+LANGUAGES = {"en": "English", "sw": "Kiswahili", "nyf": "Giriama", "kln": "Kalenjin"}
 DEFAULT_LANGUAGE = "en"
 
 LANGUAGE_RULES = {
@@ -46,6 +46,32 @@ LANGUAGE_RULES = {
         "urgent, soon, self) must stay exactly as defined, in English."
     ),
 }
+
+# Giriama (nyf) and Kalenjin (kln) are lower-resource languages: the model may
+# be weak in them. The rule therefore tells it to write only what it is sure of
+# and to fall back to simple Kiswahili, never to guess. Glossary terms and
+# example replies written by native speakers live in languages/<code>.json
+# (see language_resources() below) and are added to the prompt every turn.
+# KALENJIN_VARIETY: name the exact variety here once it is chosen
+# (for example "Kipsigis" or "Nandi").
+KALENJIN_VARIETY = "Kalenjin"
+
+_LOW_RESOURCE_RULE = (
+    "Respond to the patient in simple {name}, using the glossary and example "
+    "replies below when they are given. Only write {name} where you are "
+    "confident the wording is correct and natural. If you are unsure of a "
+    "word or sentence, write that part in simple Kiswahili instead of "
+    "guessing, and never invent {name} words. The patient may write in "
+    "{name}, Kiswahili, English or a mix; understand all of them. This "
+    "applies to every free-text field: the follow-up question and its "
+    "reason, condition names and descriptions, red flags, and action text. "
+    "Keep common medical names such as Malaria or Typhoid and add a short "
+    "explanation. Always write the emergency numbers 999 and 112 as digits. "
+    "Tool names, JSON field names and enum values (low, medium, high, "
+    "urgent, soon, self) must stay exactly as defined, in English."
+)
+LANGUAGE_RULES["nyf"] = _LOW_RESOURCE_RULE.format(name="Giriama (Kigiriama)")
+LANGUAGE_RULES["kln"] = _LOW_RESOURCE_RULE.format(name=KALENJIN_VARIETY)
 
 REGION_NOTES = {
     "coast": (
@@ -108,10 +134,55 @@ def normalise_region(value) -> str:
     return value if isinstance(value, str) and value in REGION_NOTES else ""
 
 
+_LANG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "languages")
+
+
+def language_resources(code: str) -> str:
+    """Reads languages/<code>.json (written with native speakers) and returns
+    a glossary and example replies for the prompt. A missing or unreadable file
+    returns "" so the app still works. Entries with an empty value are skipped.
+
+    File format:
+      {"glossary": {"headache": "<term>", ...},
+       "examples": [{"patient": "...", "assistant": "..."}, ...]}"""
+    if code not in ("nyf", "kln"):
+        return ""
+    try:
+        with open(os.path.join(_LANG_DIR, code + ".json"), "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+
+    def clean(v):
+        return " ".join(str(v).split())[:300]
+
+    lines = []
+    glossary = data.get("glossary")
+    if isinstance(glossary, dict):
+        items = [(clean(k), clean(v)) for k, v in glossary.items() if str(v).strip()][:200]
+        if items:
+            lines.append("Glossary (English = " + LANGUAGES[code] + "):")
+            lines += [f"- {k} = {v}" for k, v in items]
+    examples = data.get("examples")
+    if isinstance(examples, list):
+        shown = [e for e in examples if isinstance(e, dict)
+                 and str(e.get("patient", "")).strip() and str(e.get("assistant", "")).strip()][:20]
+        if shown:
+            lines.append("Examples of good replies:")
+            for e in shown:
+                lines.append(f"Patient: {clean(e['patient'])}\nReply: {clean(e['assistant'])}")
+    return "\n".join(lines)
+
+
 def locale_instructions(language, region) -> str:
     """Builds the locale block appended to the system instruction."""
     lang = normalise_language(language)
     parts = ["Language: " + LANGUAGE_RULES[lang]]
+    resources = language_resources(lang)
+    if resources:
+        parts.append(resources)
     reg = normalise_region(region)
     if reg:
         parts.append("Regional context: " + REGION_NOTES[reg] + " " + REGION_RULE)
