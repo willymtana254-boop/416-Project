@@ -3,6 +3,7 @@
   const I18N = {
     en: {
       pill: "Agentic triage",
+      beta_note: "This language is still being tested, so some words may be unclear. If anything is confusing, switch to Kiswahili or English. In an emergency call 999 or 112.",
       hero: "Describe your symptoms — MediTECH AI may ask a few follow-up questions before giving a triage assessment, the way an intake nurse would.",
       phFirst: "e.g. I have a throbbing headache behind my eyes, slight fever, and nausea. It started this morning…",
       phAnswer: "Your answer…",
@@ -51,6 +52,7 @@
     },
     sw: {
       pill: "Tathmini ya awali",
+      beta_note: "Lugha hii bado inajaribiwa, kwa hiyo baadhi ya maneno yanaweza kuwa hayako wazi. Ukichanganyikiwa, badilisha kwenda Kiswahili au Kiingereza. Katika dharura piga 999 au 112.",
       hero: "Eleza dalili zako — MediTECH AI inaweza kukuuliza maswali machache kabla ya kutoa tathmini, kama muuguzi wa mapokezi.",
       phFirst: "k.m. Nina maumivu makali ya kichwa nyuma ya macho, homa kidogo na kichefuchefu. Yalianza asubuhi ya leo…",
       phAnswer: "Jibu lako…",
@@ -97,6 +99,10 @@
       facEmergency: "Huduma za dharura", facUnnamed: "Bila jina",
       facDirections: "Maelekezo", facCall: "Piga simu",
     },
+    // Giriama and Kalenjin: fill with native-speaker translations (see languages/README.md).
+    // Anything missing falls back to Kiswahili, then English.
+    nyf: {},
+    kln: {},
   };
   // </i18n>
 
@@ -106,11 +112,17 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable: fine */ } },
     del(k) { try { localStorage.removeItem(k); } catch { /* storage unavailable: fine */ } },
   };
-  let lang = store.get("meditech_lang") === "sw" ? "sw" : "en";
-  const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+  const LANGS = ["en", "sw", "nyf", "kln"];
+  const FALLBACK = { nyf: "sw", kln: "sw" }; // missing strings: Kiswahili, then English
+  const LOCALES = { en: ["en-GB"], sw: ["sw-KE"], nyf: ["sw-KE"], kln: ["kln-KE", "en-GB"] };
+  const BETA = ["nyf", "kln"];
+  let lang = LANGS.includes(store.get("meditech_lang")) ? store.get("meditech_lang") : "en";
+  const lookup = (key) =>
+    (I18N[lang] && I18N[lang][key]) || (FALLBACK[lang] && I18N[FALLBACK[lang]][key]) || I18N.en[key];
+  const t = (key) => lookup(key) || key;
   // t() returns the key itself when a translation is missing; tOr() lets callers
   // fall back to the raw value instead (e.g. an unexpected likelihood from the model).
-  const tOr = (key, fallback) => ((I18N[lang] && I18N[lang][key]) || I18N.en[key] || fallback);
+  const tOr = (key, fallback) => lookup(key) || fallback;
   const fmt = (s, vars) => s.replace(/\{(\w+)\}/g, (_, k) => (k in vars ? vars[k] : ""));
   const esc = (s) =>
     String(s == null ? "" : s)
@@ -130,7 +142,7 @@
   function fmtDate(iso) {
     try {
       const d = new Date(iso);
-      return isNaN(d) ? String(iso || "") : d.toLocaleString(lang === "sw" ? "sw-KE" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
+      return isNaN(d) ? String(iso || "") : d.toLocaleString(LOCALES[lang] || ["en-GB"], { dateStyle: "medium", timeStyle: "short" });
     } catch { return String(iso || ""); }
   }
 
@@ -158,6 +170,11 @@
   function applyI18n() {
     document.documentElement.lang = lang;
     langSelect.value = lang;
+    const betaNote = $("betaNote");
+    if (betaNote) {
+      betaNote.textContent = t("beta_note");
+      betaNote.style.display = BETA.includes(lang) ? "" : "none";
+    }
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
       el.placeholder = t(el.dataset.i18nPlaceholder);
@@ -170,7 +187,7 @@
   }
 
   langSelect.addEventListener("change", () => {
-    lang = langSelect.value === "sw" ? "sw" : "en";
+    lang = LANGS.includes(langSelect.value) ? langSelect.value : "en";
     store.set("meditech_lang", lang);
     applyI18n();
   });
@@ -547,7 +564,7 @@
     refresh: applyI18n,
     rerender: () => { if (lastAssessment) renderAssessment(lastAssessment.turn, lastAssessment.sources); },
     addStrings(strings) {
-      for (const L of ["en", "sw"]) Object.assign(I18N[L], (strings && strings[L]) || {});
+      for (const L of LANGS) Object.assign(I18N[L], (strings && strings[L]) || {});
     },
   };
 

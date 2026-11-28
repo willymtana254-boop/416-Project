@@ -3,6 +3,16 @@
   const I18N = {
     en: {
       pill: "Agentic triage",
+      rf_text: "These can be signs of an emergency. If this is severe, sudden or getting worse, call 999 or 112, or go to the nearest hospital now. You can still continue below.",
+      nav_check: "Check symptoms",
+      nav_fac: "Nearest facilities",
+      how_title: "How would you like to describe it?",
+      mode_text: "Type my symptoms",
+      mode_photo: "Upload a photo",
+      photo_drop: "Choose or take a photo",
+      photo_hint: "Clear lighting helps assess rashes, swelling or wounds.",
+      photo_remove: "Remove photo",
+      phPhoto: "Add a short note about the photo (optional)",
       beta_note: "This language is still being tested, so some words may be unclear. If anything is confusing, switch to Kiswahili or English. In an emergency call 999 or 112.",
       hero: "Describe your symptoms — MediTECH AI may ask a few follow-up questions before giving a triage assessment, the way an intake nurse would.",
       phFirst: "e.g. I have a throbbing headache behind my eyes, slight fever, and nausea. It started this morning…",
@@ -52,6 +62,16 @@
     },
     sw: {
       pill: "Tathmini ya awali",
+      rf_text: "Hizi zinaweza kuwa dalili za dharura. Ikiwa ni kali, ya ghafla au inazidi kuwa mbaya, piga 999 au 112, au nenda hospitali iliyo karibu sasa. Unaweza kuendelea hapa chini.",
+      nav_check: "Pima dalili",
+      nav_fac: "Vituo vya afya vilivyo karibu",
+      how_title: "Ungependa kueleza vipi?",
+      mode_text: "Andika dalili zangu",
+      mode_photo: "Pakia picha",
+      photo_drop: "Chagua au piga picha",
+      photo_hint: "Mwanga mzuri husaidia kutathmini upele, uvimbe au majeraha.",
+      photo_remove: "Ondoa picha",
+      phPhoto: "Ongeza maelezo mafupi kuhusu picha (si lazima)",
       beta_note: "Lugha hii bado inajaribiwa, kwa hiyo baadhi ya maneno yanaweza kuwa hayako wazi. Ukichanganyikiwa, badilisha kwenda Kiswahili au Kiingereza. Katika dharura piga 999 au 112.",
       hero: "Eleza dalili zako — MediTECH AI inaweza kukuuliza maswali machache kabla ya kutoa tathmini, kama muuguzi wa mapokezi.",
       phFirst: "k.m. Nina maumivu makali ya kichwa nyuma ya macho, homa kidogo na kichefuchefu. Yalianza asubuhi ya leo…",
@@ -153,6 +173,8 @@
   let history = [];          // Gemini-format conversation, resent every turn
   let imageB64 = null;       // {mimeType, data} | null
   let isFirstTurn = true;
+  let inputMode = "text";    // "text" or "photo"
+  let currentView = "check"; // "check" or "fac"
   let loading = false;
   let lastAssessment = null; // {turn, sources}, kept so a language switch can re-render it
   const fac = { items: [], radiusKm: 0, filter: "all", status: "idle", errorMsg: "", cachedAt: null, cachedNow: false };
@@ -165,6 +187,8 @@
   const langSelect = $("langSelect");
   const locBtn = $("locBtn"), facFilters = $("facFilters"), facStatus = $("facStatus"), facList = $("facList");
   const facCard = $("facCard"), facNote = $("facNote"), facForget = $("facForget");
+  const checkView = $("checkView"), firstTop = $("firstTop"), textExtras = $("textExtras"), photoBlock = $("photoBlock");
+  const dropLabel = $("dropLabel"), imgPreviewWrap = $("imgPreviewWrap"), imgPreview = $("imgPreview");
 
   // ── Language ──
   function applyI18n() {
@@ -179,7 +203,7 @@
     document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
       el.placeholder = t(el.dataset.i18nPlaceholder);
     });
-    textInput.placeholder = isFirstTurn ? t("phFirst") : t("phAnswer");
+    textInput.placeholder = isFirstTurn ? t(inputMode === "photo" ? "phPhoto" : "phFirst") : t("phAnswer");
     refreshButton();
     if (lastAssessment) renderAssessment(lastAssessment.turn, lastAssessment.sources);
     renderFacilities();
@@ -199,22 +223,123 @@
   }
   regionSelect.addEventListener("change", () => store.set("meditech_region", regionSelect.value));
 
-  // ── Quick tags: insert the tag in the language currently shown ──
-  document.querySelectorAll(".qtag[data-i18n]").forEach((btn) => {
+  // ── Quick tags: tap to add the tag (in the language shown), tap again to remove it ──
+  const chosenTags = new Map(); // button -> the text it added
+  const redBanner = $("redFlagBanner");
+  const RED_WORDS = /chest pain|can'?t breathe|cannot breathe|difficulty breathing|short(ness)? of breath|unconscious|collapsed|seizure|convulsion|heavy bleeding|stroke|maumivu ya kifua|kushindwa kupumua|shida ya kupumua|kuzimia|degedege|damu nyingi/i;
+
+  // A heads-up only: it never replaces the assessment, and no banner does not mean "safe".
+  function updateRedFlag() {
+    const urgentChip = [...chosenTags.keys()].some((b) => b.hasAttribute("data-urgent"));
+    const show = urgentChip || RED_WORDS.test(textInput.value);
+    if (show) {
+      redBanner.innerHTML = `<span>${esc(t("rf_text"))}</span>
+        <span class="rf-call"><a href="tel:999">${esc(tOr("em_call_999", "Call 999"))}</a>
+        <a href="tel:112">${esc(tOr("em_call_112", "Call 112"))}</a></span>`;
+    }
+    redBanner.hidden = !show;
+  }
+  function removeTag(value, tag) {
+    const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+    const i = parts.indexOf(tag);
+    if (i >= 0) parts.splice(i, 1);
+    return parts.join(", ");
+  }
+  function clearChips() {
+    chosenTags.clear();
+    document.querySelectorAll("#firstTurnExtras .qtag").forEach((b) => {
+      b.classList.remove("selected");
+      b.setAttribute("aria-pressed", "false");
+    });
+  }
+  document.querySelectorAll("#firstTurnExtras .qtag[data-i18n]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", "false");
     btn.addEventListener("click", () => {
       const tag = btn.textContent;
-      textInput.value = textInput.value.trim() ? `${textInput.value.trim()}, ${tag}` : tag;
+      if (chosenTags.has(btn)) {
+        textInput.value = removeTag(textInput.value, chosenTags.get(btn));
+        chosenTags.delete(btn);
+      } else {
+        textInput.value = textInput.value.trim() ? `${textInput.value.trim()}, ${tag}` : tag;
+        chosenTags.set(btn, tag);
+      }
+      const on = chosenTags.has(btn);
+      btn.classList.toggle("selected", on);
+      btn.setAttribute("aria-pressed", String(on));
       textInput.focus();
+      updateRedFlag();
     });
   });
+  textInput.addEventListener("input", updateRedFlag);
 
-  // ── Image upload ──
+  // ── Input method: type or photo ──
+  function setInputMode(mode) {
+    inputMode = mode === "photo" ? "photo" : "text";
+    photoBlock.hidden = inputMode !== "photo";
+    textExtras.hidden = inputMode !== "text";
+    textInput.rows = inputMode === "photo" ? 3 : 5;
+    document.querySelectorAll(".seg-btn").forEach((b) => {
+      const on = b.dataset.input === inputMode;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    textInput.placeholder = isFirstTurn ? t(inputMode === "photo" ? "phPhoto" : "phFirst") : t("phAnswer");
+  }
+  document.querySelectorAll(".seg-btn").forEach((b) => b.addEventListener("click", () => setInputMode(b.dataset.input)));
+
+  // ── Top navigation: check symptoms / nearest facilities ──
+  function setView(view) {
+    currentView = view === "fac" ? "fac" : "check";
+    checkView.hidden = currentView !== "check";
+    facCard.hidden = currentView !== "fac";
+    document.querySelectorAll(".nav-tab").forEach((b) => {
+      const on = b.dataset.view === currentView;
+      b.classList.toggle("on", on);
+      if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelectorAll(".nav-tab").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+  // ── Image upload (photo is shrunk first: phone photos are large) ──
+  function clearPreview() {
+    imgPreview.removeAttribute("src");
+    imgPreviewWrap.hidden = true;
+    dropLabel.hidden = false;
+  }
+  $("imgRemove").addEventListener("click", () => {
+    imageB64 = null;
+    imgFile.value = "";
+    clearPreview();
+  });
   imgFile.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      imageB64 = { mimeType: file.type, data: ev.target.result.split(",")[1] };
+      const original = ev.target.result;
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1280;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        const small = canvas.toDataURL("image/jpeg", 0.85);
+        imageB64 = { mimeType: "image/jpeg", data: small.split(",")[1] };
+        imgPreview.src = small;
+        imgPreviewWrap.hidden = false;
+        dropLabel.hidden = true;
+      };
+      img.onerror = () => {
+        // Could not decode it here (an unusual format): send the original as it is.
+        imageB64 = { mimeType: file.type, data: original.split(",")[1] };
+        imgPreview.src = original;
+        imgPreviewWrap.hidden = false;
+        dropLabel.hidden = true;
+      };
+      img.src = original;
     };
     reader.readAsDataURL(file);
   });
@@ -224,6 +349,8 @@
 
   function refreshButton() {
     goBtn.disabled = loading;
+    firstTop.hidden = !isFirstTurn;
+    updateRedFlag();
     goBtn.textContent = loading ? t("thinking") : isFirstTurn ? t("start") : t("send");
   }
 
@@ -266,6 +393,7 @@
       textInput.rows = 3;
       imageB64 = null;
       imgFile.value = "";
+      clearPreview();
 
       if (data.turn.kind === "question") {
         addBubble("model", data.turn.question, data.turn.reason);
@@ -339,6 +467,7 @@
         ? `<div class="sources">📖 ${esc(t("sources"))} ${sources.map((s) => esc(s)).join(", ")}</div>`
         : "";
 
+    resultsCard.className = `card result sev-${sev}`;
     resultsCard.innerHTML = `
       <span class="badge b-${sev}">${esc(t("sev_" + sev))}</span>
       ${emergencyHtml}
@@ -358,7 +487,7 @@
     if (eb) {
       eb.addEventListener("click", () => {
         fac.filter = "hospital";
-        facCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        setView("fac");
         findFacilities();
       });
     }
@@ -379,8 +508,11 @@
     firstTurnExtras.style.display = "block";
     textInput.value = "";
     textInput.rows = 5;
+    clearChips();
     bodyArea.value = "";
     imgFile.value = "";
+    clearPreview();
+    setInputMode("text");
     hideErr();
     applyI18n();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -561,6 +693,7 @@
     getLang: () => lang,
     reload: () => window.location.reload(),
     hooks,
+    setView,
     refresh: applyI18n,
     rerender: () => { if (lastAssessment) renderAssessment(lastAssessment.turn, lastAssessment.sources); },
     addStrings(strings) {

@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MediTECH AI — Health Assistant</title>
-<meta name="theme-color" content="#080c0a">
+<meta name="theme-color" content="#f3f7fc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Symptom triage assistant for Kenya, in English, Kiswahili, Giriama and Kalenjin.">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}">
@@ -25,8 +26,11 @@
 
   <header>
     <div class="logo" id="homeLink" role="link" tabindex="0">
-      <div class="logo-mark">🩺</div>
+      <div class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
       <div class="logo-name">Medi<b>TECH</b> AI</div>
+      <span class="brand-badge" data-i18n="pill">Agentic triage</span>
     </div>
     <div class="header-right">
       <button id="emergNav" class="hdr-btn emerg" type="button" data-i18n="acct_emergency">Emergency signs</button>
@@ -38,10 +42,6 @@
         <option value="nyf">Giriama (beta)</option>
         <option value="kln">Kalenjin (beta)</option>
       </select>
-      <div class="status-pill">
-        <div class="pulse"></div>
-        <span data-i18n="pill">Agentic triage</span>
-      </div>
     </div>
   </header>
 
@@ -51,6 +51,19 @@
 
   <div id="homeView">
 
+  <nav id="appNav" class="app-nav" aria-label="Main">
+    <button class="nav-tab on" type="button" data-view="check" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      <span data-i18n="nav_check">Check symptoms</span>
+    </button>
+    <button class="nav-tab" type="button" data-view="fac">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span data-i18n="nav_fac">Nearest facilities</span>
+    </button>
+  </nav>
+
+  <div id="checkView">
+
   <div class="hero">
     <p data-i18n="hero">Describe your symptoms — MediTECH AI may ask a few follow-up questions before giving a
        triage assessment, the way an intake nurse would.</p>
@@ -59,24 +72,53 @@
   <div class="chat-log" id="chatLog"></div>
 
   <div class="card" id="inputCard">
+    <div id="firstTop">
+      <div class="sec-title" data-i18n="how_title">How would you like to describe it?</div>
+      <div class="seg" role="group" aria-label="Input method">
+        <button class="seg-btn on" type="button" data-input="text" aria-pressed="true">
+          <span aria-hidden="true">✍️</span> <span data-i18n="mode_text">Type my symptoms</span>
+        </button>
+        <button class="seg-btn" type="button" data-input="photo" aria-pressed="false">
+          <span aria-hidden="true">📷</span> <span data-i18n="mode_photo">Upload a photo</span>
+        </button>
+      </div>
+
+      <div id="photoBlock" hidden>
+        <label class="drop" id="dropLabel" for="imgFile">
+          <span class="drop-ico" aria-hidden="true">📷</span>
+          <span class="drop-title" data-i18n="photo_drop">Tap to choose a photo</span>
+          <span class="drop-sub" data-i18n="photo_hint">Use a clear photo of the visible symptom, such as a rash, wound or swelling.</span>
+        </label>
+        <input type="file" id="imgFile" accept="image/*" class="sr-only">
+        <div id="imgPreviewWrap" class="img-preview" hidden>
+          <img id="imgPreview" alt="">
+          <button class="link-btn" id="imgRemove" type="button" data-i18n="photo_remove">Remove photo</button>
+        </div>
+      </div>
+    </div>
+
     <textarea id="textInput" rows="5" data-i18n-placeholder="phFirst"
       placeholder="e.g. I have a throbbing headache behind my eyes, slight fever, and nausea. It started this morning…"></textarea>
+    <div class="red-flag-banner" id="redFlagBanner" role="alert" hidden></div>
 
     <div id="firstTurnExtras">
+      <div id="textExtras">
       <div class="qtags">
         <button class="qtag" type="button" data-i18n="tag_headache">Headache</button>
         <button class="qtag" type="button" data-i18n="tag_fever">Fever</button>
         <button class="qtag" type="button" data-i18n="tag_fatigue">Fatigue</button>
         <button class="qtag" type="button" data-i18n="tag_nausea">Nausea</button>
         <button class="qtag" type="button" data-i18n="tag_cough">Cough</button>
-        <button class="qtag" type="button" data-i18n="tag_chest">Chest pain</button>
-        <button class="qtag" type="button" data-i18n="tag_breath">Shortness of breath</button>
+        <button class="qtag" type="button" data-urgent data-i18n="tag_chest">Chest pain</button>
+        <button class="qtag" type="button" data-urgent data-i18n="tag_breath">Shortness of breath</button>
         <button class="qtag" type="button" data-i18n="tag_dizzy">Dizziness</button>
         <button class="qtag" type="button" data-i18n="tag_rash">Rash</button>
         <button class="qtag" type="button" data-i18n="tag_joint">Joint pain</button>
       </div>
+      </div><!-- /textExtras -->
 
-      <div class="field">
+      <div class="context-grid">
+      <div>
         <select id="bodyArea">
           <option value="" data-i18n="area_none">— Primary affected area (optional) —</option>
           <option data-i18n="area_head">Head &amp; Neck</option>
@@ -93,7 +135,7 @@
         </select>
       </div>
 
-      <div class="field">
+      <div>
         <select id="regionSelect">
           <option value="" data-i18n="region_none">— Where are you? (optional) —</option>
           <option value="coast" data-i18n="region_coast">Coast</option>
@@ -103,10 +145,6 @@
           <option value="north" data-i18n="region_north">Northern &amp; Eastern dry areas</option>
         </select>
       </div>
-
-      <div class="field">
-        <label class="file-label" for="imgFile" data-i18n="photo">Photo of a visible symptom (optional)</label>
-        <input type="file" id="imgFile" accept="image/*">
       </div>
     </div>
 
@@ -117,7 +155,9 @@
 
   <div class="card" id="resultsCard" style="display:none;"></div>
 
-  <div class="card" id="facCard">
+  </div><!-- /checkView -->
+
+  <div class="card" id="facCard" hidden>
     <div class="fac-head">
       <div>
         <div class="fac-title" data-i18n="facTitle">📍 Find the nearest health facility</div>

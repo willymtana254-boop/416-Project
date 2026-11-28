@@ -1,19 +1,3 @@
-"""Nearby health facility lookup (Phase 3).
-
-Data source: OpenStreetMap, queried through the Overpass API. It is free,
-needs no key, and covers hospitals, clinics and pharmacies with
-coordinates. Coverage in rural Kenya is uneven, so results can be
-incomplete; the UI says so.
-
-The Kenya Master Health Facility List (KMHFL) is the authoritative source
-for licensed facilities, but its API needs credentials from the Ministry
-of Health / HealthIT (University of Nairobi). If you get access, replace
-find_facilities() with a KMHFL-backed version that returns the same shape;
-nothing else in the app needs to change.
-
-Only find_facilities() is called from app.py. parse_elements() is pure
-(no network) so it can be tested on its own."""
-
 import logging
 import math
 import re
@@ -25,6 +9,8 @@ log = logging.getLogger(__name__)
 
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.openstreetmap.fr/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
 USER_AGENT = "MediTECH-AI/0.3 (fourth-year university project)"
@@ -40,8 +26,8 @@ CACHE_TTL_SECONDS = 600
 # TIME_BUDGET_S so the patient is not left waiting on a spinner.
 ROUNDS = 2
 ROUND_PAUSE_S = 1.5
-REQUEST_TIMEOUT_S = 20
-TIME_BUDGET_S = 45
+REQUEST_TIMEOUT_S = 25
+TIME_BUDGET_S = 90
 
 _cache: dict = {}
 
@@ -134,14 +120,16 @@ def parse_elements(elements: list, lat: float, lon: float) -> list:
 
 
 def _build_query(lat: float, lon: float, radius_m: int) -> str:
-    return (
-        "[out:json][timeout:20];\n"
-        "(\n"
-        f'  nwr["amenity"~"^(hospital|clinic|doctors|pharmacy)$"](around:{radius_m},{lat},{lon});\n'
-        f'  nwr["healthcare"~"^(hospital|clinic|doctor|pharmacy|centre)$"](around:{radius_m},{lat},{lon});\n'
-        ");\n"
-        "out tags center 150;\n"
-    )
+    # Exact tag matches (not regular expressions): the public servers answer
+    # these much faster, which matters when they are busy.
+    around = f"(around:{radius_m},{lat},{lon});"
+    pairs = [
+        ("amenity", "hospital"), ("amenity", "clinic"), ("amenity", "doctors"), ("amenity", "pharmacy"),
+        ("healthcare", "hospital"), ("healthcare", "clinic"), ("healthcare", "doctor"),
+        ("healthcare", "pharmacy"), ("healthcare", "centre"),
+    ]
+    body = "".join(f'  nwr["{k}"="{v}"]{around}\n' for k, v in pairs)
+    return "[out:json][timeout:25];\n(\n" + body + ");\nout tags center 150;\n"
 
 
 def _overpass(query: str) -> list:
